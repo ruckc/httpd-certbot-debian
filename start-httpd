@@ -1,0 +1,20 @@
+#!/bin/bash
+
+### If certificates don't exist yet we must ensure we create them to start nginx
+if [[ ! -f /etc/letsencrypt/live/${FQDN}/fullchain.pem ]]; then
+  certbot certonly \
+        --config-dir "/etc/letsencrypt" \
+		--agree-tos \
+		--domains "$FQDN" \
+		--email "$EMAIL" \
+		--expand \
+		--noninteractive \
+		--standalone \
+		$OPTIONS || true
+fi
+
+$(while :; do certbot renew ; sleep "${RENEW_INTERVAL:-12h}"; done;) &
+
+$(while inotifywait -e close_write /etc/letsencrypt/live/${FQDN}; do apachectl graceful ; done) &
+
+apachectl -D FOREGROUND
